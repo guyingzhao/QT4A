@@ -27,37 +27,44 @@ try:
     raw_input
 except:
     raw_input = input
+
     
 def install_qt4a_driver(args):
     from qt4a.androiddriver.adb import ADB
     from qt4a.androiddriver.androiddriver import copy_android_driver
     
     device_list = ADB.list_device()
+    if args.serial and args.serial not in device_list:
+        raise RuntimeError("serial number %s not in %s" % (args.serial, device_list))
+    
     if len(device_list) == 0:
         raise RuntimeError('No Android device found')
     elif len(device_list) == 1:
         device_id = device_list[0]
     elif len(device_list) > 1:
-        text = '\nCurrent Android device list:\n'
-        for i, dev in enumerate(device_list):
-            text += '%d. %s\n' % ((i + 1), dev)
-
-        while True:
-            print(text)
-            result = raw_input('Please input the index of device to install driver:\n')
-            if result.isdigit():
-                if int(result) > len(device_list):
-                    sys.stderr.write('\nIndex %s out of range\nValid index range: [1, %d]\n' % (result, len(device_list)))
-                    time.sleep(0.1)
-                    continue
-                device_id = device_list[int(result) - 1]
-            else:
-                if not result in device_list:
-                    sys.stderr.write('\nDevice id %r not exist\n' % result)
-                    time.sleep(0.1)
-                    continue
-                device_id = result
-            break
+        if args.serial is not None:
+            device_id = args.serial
+        else:
+            text = '\nCurrent Android device list:\n'
+            for i, dev in enumerate(device_list):
+                text += '%d. %s\n' % ((i + 1), dev)
+    
+            while True:
+                print(text)
+                result = raw_input('Please input the index of device to install driver:\n')
+                if result.isdigit():
+                    if int(result) > len(device_list):
+                        sys.stderr.write('\nIndex %s out of range\nValid index range: [1, %d]\n' % (result, len(device_list)))
+                        time.sleep(0.1)
+                        continue
+                    device_id = device_list[int(result) - 1]
+                else:
+                    if not result in device_list:
+                        sys.stderr.write('\nDevice id %r not exist\n' % result)
+                        time.sleep(0.1)
+                        continue
+                    device_id = result
+                break
         
     print('Device "%s" will install driver...' % device_id)
     copy_android_driver(device_id, args.force)
@@ -101,7 +108,7 @@ def qt4a_repack_apk(apk_path_or_list, debuggable=True):
         file_path = os.path.join(tools_path, it)
         file_path_list.append((file_path, 'assets/qt4a/%s' % it))
 
-    return repack.repack_apk(apk_path_or_list, 
+    return repack.repack_apk(apk_path_or_list,
         'com.test.androidspy.inject.DexLoaderContentProvider',
         os.path.join(cur_path, 'apktool', 'tools', 'dexloader.dex'),
         activity_list,
@@ -141,6 +148,7 @@ def qt4a_manage_main():
     subparsers = parser.add_subparsers(help='subcommand')
     install_driver_parser = subparsers.add_parser('install-driver', help='install qt4a driver')
     install_driver_parser.add_argument('-f', '--force', action='store_true', help='force install qt4a driver')
+    install_driver_parser.add_argument('-s', '--serial', help='explicitly specify mobile serial number')
     install_driver_parser.set_defaults(func=install_qt4a_driver)
     
     repack_parser = subparsers.add_parser('repack-apk', help='repack apk file')
@@ -158,12 +166,9 @@ def qt4a_manage_main():
         args.func(args)
     else:
         parser.print_help()
-        print('\n%s: error: too few arguments' % os.path.split(sys.argv[0])[-1], file=sys.stderr) # show error info in python3
+        print('\n%s: error: too few arguments' % os.path.split(sys.argv[0])[-1], file=sys.stderr)  # show error info in python3
         
         
 if __name__ == '__main__':
     qt4a_manage_main()
-    
-    
-    
 
